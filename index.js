@@ -1,43 +1,82 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+import { Client, GatewayIntentBits, Partials, EmbedBuilder } from "discord.js";
 
+// Maak de client
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.GuildMembers
-    ]
+    ],
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// CONFIG
-const welcomeChannelId = '1453760790506242110';
+// Config
+const roleId = "1453764683667345499";
+const emoji = "👋";
+const channelId = "1453776383204393052";
 
-// Bot online
-client.once('ready', () => {
-    console.log(`✅ Welkom bot online als ${client.user.tag}`);
-});
+let reactionMessageId;
 
-// Event: lid joint
-client.on('guildMemberAdd', member => {
-    const channel = member.guild.channels.cache.get(welcomeChannelId);
-    if (!channel) return;
+client.once("ready", async () => {
+    console.log(`Logged in als ${client.user.tag}`);
+
+    const guild = client.guilds.cache.first();
+    if (!guild) return console.log("Geen guild gevonden");
+
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel) return console.log("Kanaal niet gevonden!");
 
     const embed = new EmbedBuilder()
-        .setTitle('Welkom! 🎉')
-        .setDescription(`
-Welkom **${member.user.username}** in **${member.guild.name}**! 🎉  
-Je bent onze **${member.guild.memberCount}e** <@&1453764683667345499>!
+        .setTitle("Claim je rol!")
+        .setDescription(`Klik op ${emoji} om de inwoner rol te krijgen!`)
+        .setColor("Blue");
 
-We zijn blij dat je er bent!
+    const sentMessage = await channel.send({ embeds: [embed] });
+    await sentMessage.react(emoji);
 
-📌 **Lees even de [Regels](https://discord.com/channels/1453743674486685940/1453760810223538390)**
-👀 **Bekijk de [Mededelingen](https://discord.com/channels/1453743674486685940/1453761361539498138)**
-💬 **Zeg hallo in de [Chat](https://discord.com/channels/1453743674486685940/1453761576338198641)**
-`)
-        .setColor('#FF0000')
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setFooter({ text: 'Murat Shop' })
-        .setTimestamp();
-
-    channel.send({ embeds: [embed] });
+    reactionMessageId = sentMessage.id;
 });
 
+// Rol toevoegen
+client.on("messageReactionAdd", async (reaction, user) => {
+    if (user.bot) return;
+    if (reaction.partial) await reaction.fetch();
+
+    if (
+        reaction.message.id === reactionMessageId &&
+        reaction.emoji.name === emoji
+    ) {
+        const member = await reaction.message.guild.members.fetch(user.id);
+        await member.roles.add(roleId);
+    }
+});
+
+// Rol verwijderen
+client.on("messageReactionRemove", async (reaction, user) => {
+    if (user.bot) return;
+    if (reaction.partial) await reaction.fetch();
+
+    if (
+        reaction.message.id === reactionMessageId &&
+        reaction.emoji.name === emoji
+    ) {
+        const member = await reaction.message.guild.members.fetch(user.id);
+        await member.roles.remove(roleId);
+    }
+});
+
+import http from "http";
+
+const PORT = process.env.PORT || 3000;
+
+http.createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Bot is running ✅");
+}).listen(PORT, () => {
+    console.log(`Server draait op poort ${PORT}`);
+});
+
+
+// Login
 client.login(process.env.TOKEN);
